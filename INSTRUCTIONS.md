@@ -5,7 +5,7 @@ Almost everything is scripted; the agent's job is to run the steps, read the out
 
 ## Steps (run in the manuscript directory)
 
-1. `waihona.py scan` — list every URL in `.tex` and `.bib` (commented-out URLs are ignored).
+1. `waihona.py [--top-only] scan` — list every URL in `.tex` and `.bib` (commented-out URLs are ignored).
 2. **Gate: approval.** `archive` makes archive.org crawl pages (Save Page Now). Show the user the
    `NEW` list and get a yes before step 3. Never run it against private, paywalled, or unpublished URLs.
 3. `waihona.py archive` — for each URL, use the Wayback snapshot closest to the access date if within

@@ -17,6 +17,7 @@ import argparse, datetime as dt, hashlib, json, re, sys, time
 import urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
+TOP_ONLY = False
 LOCK = "waihona.lock.json"
 DEF = "waihona.def"
 UA = "waihona/0.1 (manuscript link archiver)"
@@ -43,8 +44,9 @@ def bib_urls(text):
 
 def find_sources(root):
     skip = {"build", ".git", "node_modules"}
-    tex = [p for p in root.rglob("*.tex") if not skip & set(p.parts)]
-    bib = [p for p in root.rglob("*.bib") if not skip & set(p.parts)]
+    g = root.glob if TOP_ONLY else root.rglob
+    tex = [p for p in g("*.tex") if not skip & set(p.parts)]
+    bib = [p for p in g("*.bib") if not skip & set(p.parts)]
     return sorted(tex), sorted(bib)
 
 def collect(root):
@@ -58,6 +60,61 @@ def collect(root):
             urls.setdefault(norm(u), set()).add(str(p.relative_to(root)))
     return {u: sorted(f) for u, f in urls.items()
             if u.startswith("http") and not u.startswith(SKIP_SCHEMES)}
+
+MON = "|".join(MONTHS)
+DATE_RES = [
+    (re.compile(rf"(\d{{1,2}})\s+({MON})\s+(\d{{4}})"), lambda m: (m[3], m[2], m[1])),
+    (re.compile(rf"({MON})\s+(\d{{1,2}}),?\s+(\d{{4}})"), lambda m: (m[3], m[1], m[2])),
+    (re.compile(r"(\d{4})-(\d{2})-(\d{2})"), lambda m: (m[1], m[2], m[3])),
+]
+
+def parse_date(s):
+    for rx, pick in DATE_RES:
+        m = rx.search(s)
+        if m:
+            y, mo, d = pick(m)
+            try:
+                mo = MONTHS.index(mo) + 1 if mo in MONTHS else int(mo)
+                return dt.date(int(y), mo, int(d))
+            except ValueError:
+                pass
+    return None
+
+def access_dates_tex(text):
+    """url -> date, from 'accessed D' within 120 chars after the URL (comments stripped)."""
+    out = {}
+    t = strip_comments(text)
+    for rx in (URL_RE, HREF_RE):
+        for m in rx.finditer(t):
+            win = t[m.end(): m.end() + 120]
+            k = re.search(r"(?i)accessed|retrieved|visited|cited", win)
+            d = parse_date(win[k.end():]) if k else None
+            if d:
+                out.setdefault(norm(m.group(1)), d)
+    return out
+
+def access_dates_bib(text):
+    out = {}
+    for chunk in re.split(r"(?m)^(?=@)", text):
+        m = BIBURL_RE.search(chunk)
+        if not m:
+            continue
+        for f in ("urldate", "lastchecked", "note", "howpublished"):
+            fm = re.search(rf"(?mi)^\s*{f}\s*=\s*\{{([^}}]*)\}}", chunk)
+            d = parse_date(fm.group(1)) if fm else None
+            if d and (f != "note" and f != "howpublished" or re.search(r"(?i)access|retriev|visit|cited", fm.group(1))):
+                out[norm(m.group(1))] = d
+                break
+    return out
+
+def source_dates(root):
+    tex, bib = find_sources(root)
+    out = {}
+    for p in bib:
+        out.update(access_dates_bib(p.read_text(errors="replace")))
+    for p in tex:
+        out.update(access_dates_tex(p.read_text(errors="replace")))
+    return out
 
 def norm(u):
     return u.strip().replace("\\%", "%").replace("\\_", "_").replace("\\#", "#")
@@ -140,18 +197,21 @@ def cmd_archive(a):
     urls = collect(a.root)
     lock = load_lock(a.root)
     today = dt.date.today()
+    dates = source_dates(a.root)
     todo = [u for u in sorted(urls) if a.force or not lock.get(u, {}).get("archive_url")]
     if a.limit:
         todo = todo[: a.limit]
     for i, u in enumerate(todo, 1):
         old = lock.get(u, {})
-        urldate = dt.date.fromisoformat(old["urldate"]) if old.get("urldate") else today
+        # precedence: date written in the manuscript > date already in the lockfile > today
+        urldate = dates.get(u) or (dt.date.fromisoformat(old["urldate"]) if old.get("urldate") else today)
         r = resolve(u, urldate, a.max_age, not a.no_save, a.pause)
         if r:
             ts, au, how = r
             lock[u] = {"id": uid(u), "urldate": urldate.isoformat(), "timestamp": ts,
-                       "archive_url": au, "how": how, "checked": today.isoformat()}
-            print(f"[{i}/{len(todo)}] {how:8} {ts[:8]}  {u}")
+                       "archive_url": au, "how": how, "checked": today.isoformat(),
+                       "date_from": "source" if u in dates else "today"}
+            print(f"[{i}/{len(todo)}] {how:8} {ts[:8]} (access {urldate})  {u}")
         else:
             lock[u] = {"id": uid(u), "urldate": urldate.isoformat(), "how": "FAILED",
                        "checked": today.isoformat()}
@@ -266,6 +326,7 @@ def cmd_report(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", type=Path, default=Path("."))
+    ap.add_argument("--top-only", action="store_true", help="ignore subdirectories (e.g. booklets/)")
     sp = ap.add_subparsers(dest="cmd", required=True)
     sp.add_parser("scan").set_defaults(f=cmd_scan)
     s = sp.add_parser("archive"); s.set_defaults(f=cmd_archive)
@@ -280,6 +341,8 @@ def main():
     sp.add_parser("report").set_defaults(f=cmd_report)
     a = ap.parse_args()
     a.root = a.root.resolve()
+    global TOP_ONLY
+    TOP_ONLY = a.top_only
     sys.exit(a.f(a) or 0)
 
 if __name__ == "__main__":
