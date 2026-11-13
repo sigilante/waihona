@@ -299,25 +299,39 @@ def cmd_apply(a):
     else:
         print("(dry run; pass --write)")
 
+def probe(url, tries=3):
+    """'ok' (200/206), 'dead' (404/410), or 'unverified' (timeout, 202, 5xx, 429)."""
+    for i in range(tries):
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Range": "bytes=0-0"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                if r.status in (200, 206):
+                    return "ok"
+        except urllib.error.HTTPError as e:
+            if e.code in (404, 410):
+                return "dead"
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(3 * (i + 1))
+    return "unverified"
+
 def cmd_check(a):
     lock = load_lock(a.root)
     urls = collect(a.root)
-    bad = 0
+    dead = unver = 0
     for u in sorted(urls):
         e = lock.get(u)
         if not e or not e.get("archive_url"):
-            print(f"MISSING  {u}"); bad += 1; continue
-        try:
-            with get(e["archive_url"], 60, "HEAD") as r:
-                ok = r.status == 200
-        except (urllib.error.URLError, TimeoutError):
-            ok = False
-        if not ok:
-            print(f"DEAD     {e['archive_url']}"); bad += 1
+            print(f"MISSING     {u}"); dead += 1; continue
+        r = probe(e["archive_url"])
+        if r == "dead":
+            print(f"DEAD        {e['archive_url']}"); dead += 1
+        elif r == "unverified":
+            print(f"UNVERIFIED  {e['archive_url']}"); unver += 1
         elif e.get("how") == "stale":
-            print(f"STALE    {u}")
-    print(f"{len(urls) - bad}/{len(urls)} verified")
-    return 1 if bad else 0
+            print(f"STALE       {u}")
+    print(f"{len(urls) - dead - unver}/{len(urls)} verified; {unver} unverified (retry later); {dead} missing or dead")
+    return 1 if dead else 0
 
 def cmd_report(a):
     for u, e in sorted(load_lock(a.root).items()):
