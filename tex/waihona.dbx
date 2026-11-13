@@ -1,0 +1,4 @@
+% biblatex datamodel extension: \usepackage[datamodel=waihona]{biblatex}
+\DeclareDatamodelFields[type=field,datatype=uri]{archiveurl}
+\DeclareDatamodelFields[type=field,datatype=literal]{archivedate}
+\DeclareDatamodelEntryfields{archiveurl,archivedate}

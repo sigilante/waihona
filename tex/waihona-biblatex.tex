@@ -1,0 +1,6 @@
+% \input after \usepackage[datamodel=waihona]{biblatex} (biber route).
+% urldate is native to biblatex; style it with urldate=iso8601 / long.
+\DeclareFieldFormat{archiveurl}{\mkbibbrackets{\href{#1}{IA~\thefield{archivedate}}}}
+\renewbibmacro*{url+urldate}{%
+  \usebibmacro{url}\iffieldundef{urlyear}{}{\setunit*{\addspace}\usebibmacro{urldate}}%
+  \iffieldundef{archiveurl}{}{\setunit*{\addspace}\printfield{archiveurl}}}
