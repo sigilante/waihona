@@ -23,17 +23,20 @@ Almost everything is scripted; the agent's job is to run the steps, read the out
 
 ## What gets printed
 
-Inline: `https://… (accessed 13 November 2026; IA 20260615)` — `IA 20260615` is a hyperlink to the
-snapshot (`web.archive.org/web/<timestamp>/<url>`). Bibliography: `URL: … [IA 20261030] [cited …]`.
-On paper the short form is a date label only; a reader needs the PDF link or the original URL to find
-the snapshot. Print-only readers can be given the full archive URL in a data appendix if wanted.
+House style (option 1 in [docs/CITATION-STYLES.md](docs/CITATION-STYLES.md)), one parenthetical, same inline and in the bibliography:
+
+    https://example.org/page (accessed 13 November 2026; archived 18 October 2026)
+
+`archived 18 October 2026` is the hyperlink to the snapshot (`web.archive.org/web/<timestamp>/<url>`).
+**Dates are always `D Month YYYY`** ("13 November 2026"): never ISO, never US order, never abbreviated months.
+On paper the reader sees dates but no usable archive link; see the other styles in the doc if print matters.
 
 ## Per-manuscript setup (once)
 
 - `\usepackage{waihona}` (put `tex/` on `TEXINPUTS`, or copy `waihona.sty`).
 - BibTeX: `\bibliographystyle{apalike-url-archive}` (a urlbst style; `bst/`; patch other urlbst
   styles the same way — see the diff against `apalike-url.bst`).
-- biber: `\usepackage[datamodel=waihona,…]{biblatex}` then `\input{waihona-biblatex.tex}`.
+- biber: `\usepackage[datamodel=waihona,…]{biblatex}` then `\input{waihona-biblatex.tex}` (it composes the date itself, so no `urldate=` option is needed).
 
 ## Rules
 

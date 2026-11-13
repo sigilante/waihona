@@ -1,6 +1,13 @@
-% \input after \usepackage[datamodel=waihona]{biblatex} (biber route).
-% urldate is native to biblatex; style it with urldate=iso8601 / long.
-\DeclareFieldFormat{archiveurl}{\mkbibbrackets{\href{#1}{IA~\thefield{archivedate}}}}
+% \input after \usepackage[datamodel=waihona,...]{biblatex}  (biber route).
+% Prints:  url (accessed 13 November 2026; archived 18 October 2026)   [archived = link to snapshot]
+% House date style "D Month YYYY" is composed here, independent of biblatex language settings.
+\makeatletter
+\newcommand\waihona@urldate{\thefield{urlday}~\ifcase\thefield{urlmonth}\or\biblstring{january}\or\biblstring{february}\or\biblstring{march}\or\biblstring{april}\or\biblstring{may}\or\biblstring{june}\or\biblstring{july}\or\biblstring{august}\or\biblstring{september}\or\biblstring{october}\or\biblstring{november}\or\biblstring{december}\fi~\thefield{urlyear}}
 \renewbibmacro*{url+urldate}{%
-  \usebibmacro{url}\iffieldundef{urlyear}{}{\setunit*{\addspace}\usebibmacro{urldate}}%
-  \iffieldundef{archiveurl}{}{\setunit*{\addspace}\printfield{archiveurl}}}
+  \usebibmacro{url}%
+  \iffieldundef{archiveurl}
+    {\iffieldundef{urlyear}{}{\addspace(accessed~\waihona@urldate)}}
+    {\addspace(%
+       \iffieldundef{urlyear}{}{accessed~\waihona@urldate; }%
+       \href{\thefield{archiveurl}}{archived~\thefield{archivedate}})}}
+\makeatother

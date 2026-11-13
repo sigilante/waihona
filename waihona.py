@@ -223,7 +223,8 @@ def cmd_archive(a):
     return 1 if bad else 0
 
 def short(entry):
-    return entry["timestamp"][:8]
+    """Snapshot date in house style: 18 October 2026."""
+    return longdate(parse_ts(entry["timestamp"]))
 
 def bib_patch(text, lock):
     """Insert/replace urldate, lastchecked, archiveurl, archivedate after each url field."""

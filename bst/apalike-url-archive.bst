@@ -282,6 +282,16 @@ FUNCTION {inbrackets}
 }
 
 FUNCTION {format.lastchecked}
+{ archiveurl empty$
+    { lastchecked empty$
+        { "" }
+        { inbrackets citedstring lastchecked * }
+      if$
+    }
+    { "" }
+  if$
+}
+FUNCTION {format.lastchecked.orig}
 { lastchecked empty$
     { "" }
     { inbrackets citedstring lastchecked * }
@@ -720,7 +730,12 @@ FUNCTION {format.url}
        { urlintro "\url{" * url * "}" *
          archiveurl empty$
            'skip$  % waihona: archive.org snapshot, short form
-           { " [\href{" * archiveurl * "}{IA~" * archivedate * "}]" * }
+           { " (" *
+             lastchecked empty$
+               'skip$
+               { "accessed " * lastchecked * "; " * }
+             if$
+             "\href{" * archiveurl * "}{archived " * archivedate * "})" * }
          if$
        }
      if$

@@ -13,5 +13,5 @@ python3 "$H/waihona.py" apply --write
 grep -q ahref m.tex && grep -q archiveurl refs.bib
 export TEXINPUTS=".:$H/tex:" BSTINPUTS=".:$H/bst:"
 xelatex -interaction=nonstopmode m >/dev/null; bibtex m >/dev/null; xelatex -interaction=nonstopmode m >/dev/null; xelatex -interaction=nonstopmode m >/dev/null
-pdftotext m.pdf - | grep -q "IA 20261101"
+pdftotext m.pdf - | grep -q "archived 1 November 2026"
 echo PASS
